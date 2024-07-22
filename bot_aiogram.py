@@ -21,9 +21,23 @@ dp = Dispatcher()
 
 # Хэндлер на команду /start
 @dp.message(Command("start"))
-async def process_start_command(message: types.Message):
-    await message.answer("Привет!\nНапиши мне что-нибудь!")
+async def cmd_start(message: types.Message):
+    kb = [
+        [types.KeyboardButton(text="С пюрешкой"),
+         types.KeyboardButton(text="Без пюрешки")]
+    ]
+    keyboard = types.ReplyKeyboardMarkup(keyboard=kb,
+        resize_keyboard=True,
+        input_field_placeholder="Выберите способ подачи")
+    await message.answer("Как подавать котлеты?", reply_markup=keyboard)
 
+@dp.message(F.text.lower() == "с пюрешкой")
+async def with_puree(message: types.Message):
+    await message.reply("Отличный выбор!", reply_markup=types.ReplyKeyboardRemove())
+
+@dp.message(F.text.lower() == "без пюрешки")
+async def without_puree(message: types.Message):
+    await message.reply("Так невкусно!", reply_markup=types.ReplyKeyboardRemove())
 
 @dp.message(Command("help"))
 async def process_help_command(message: types.Message):
@@ -68,6 +82,25 @@ async def cmd_advanced_example(message: types.Message):
     )
     await message.answer(**content.as_kwargs())
 
+@dp.message(F.photo)
+async def download_photo(message: types.Message, bot: Bot):
+    await bot.download(
+        message.photo[-1],
+        destination=f"tmp/{message.photo[-1].file_id}.jpg"
+    )
+
+
+@dp.message(F.sticker)
+async def download_sticker(message: types.Message, bot: Bot):
+    await bot.download(
+        message.sticker,
+        # для Windows пути надо подправить
+        destination=f"tmp/{message.sticker.file_id}.webp"
+    )
+
+@dp.message(F.animation)
+async def echo_gif(message: types.Message):
+    await message.reply_animation(message.animation.file_id)
 
 @dp.message()
 async def echo_message(msg: types.Message):
