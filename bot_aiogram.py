@@ -7,6 +7,8 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.formatting import (
     Bold, as_list, as_marked_section, as_key_value, HashTag
 )
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from random import randint
 
 from config_reader import config
 
@@ -38,6 +40,49 @@ async def with_puree(message: types.Message):
 @dp.message(F.text.lower() == "без пюрешки")
 async def without_puree(message: types.Message):
     await message.reply("Так невкусно!", reply_markup=types.ReplyKeyboardRemove())
+
+@dp.message(Command("inline_url"))
+async def cmd_inline_url(message: types.Message, bot: Bot):
+    builder = InlineKeyboardBuilder()
+    builder.row(types.InlineKeyboardButton(
+        text="GitHub", url="https://github.com")
+    )
+    builder.row(types.InlineKeyboardButton(
+        text="Оф. канал Telegram",
+        url="tg://resolve?domain=telegram")
+    )
+
+    # Чтобы иметь возможность показать ID-кнопку,
+    # У юзера должен быть False флаг has_private_forwards
+    user_id = message.from_user.id
+    chat_info = await bot.get_chat(user_id)
+    if not chat_info.has_private_forwards:
+        builder.row(types.InlineKeyboardButton(
+            text="Какой-то пользователь",
+            url=f"tg://user?id={user_id}")
+        )
+
+    await message.answer(
+        'Выберите ссылку',
+        reply_markup=builder.as_markup(),
+    )
+
+@dp.message(Command("random"))
+async def cmd_random(message: types.Message):
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="Нажми меня",
+        callback_data="random_value")
+    )
+    await message.answer(
+        "Нажмите на кнопку, чтобы бот отправил число от 1 до 10",
+        reply_markup=builder.as_markup()
+    )
+
+@dp.callback_query(F.data == "random_value")
+async def send_random_value(callback: types.CallbackQuery):
+    await callback.message.answer(str(randint(1, 10)))
+    await callback.answer()
 
 @dp.message(Command("help"))
 async def process_help_command(message: types.Message):
