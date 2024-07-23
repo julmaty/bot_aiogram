@@ -1,159 +1,24 @@
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters.command import Command
+from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
-from aiogram.utils.formatting import (
-    Bold, as_list, as_marked_section, as_key_value, HashTag
-)
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from random import randint
+from handlers import questions
+
 
 from config_reader import config
 
-# Включаем логирование, чтобы не пропустить важные сообщения
-logging.basicConfig(level=logging.INFO)
-# Объект бота
-bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(
-        parse_mode=ParseMode.HTML
-    ))
-dp = Dispatcher()
-
-
-# Хэндлер на команду /start
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    kb = [
-        [types.KeyboardButton(text="С пюрешкой"),
-         types.KeyboardButton(text="Без пюрешки")]
-    ]
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Выберите способ подачи")
-    await message.answer("Как подавать котлеты?", reply_markup=keyboard)
-
-@dp.message(F.text.lower() == "с пюрешкой")
-async def with_puree(message: types.Message):
-    await message.reply("Отличный выбор!", reply_markup=types.ReplyKeyboardRemove())
-
-@dp.message(F.text.lower() == "без пюрешки")
-async def without_puree(message: types.Message):
-    await message.reply("Так невкусно!", reply_markup=types.ReplyKeyboardRemove())
-
-@dp.message(Command("inline_url"))
-async def cmd_inline_url(message: types.Message, bot: Bot):
-    builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(
-        text="GitHub", url="https://github.com")
-    )
-    builder.row(types.InlineKeyboardButton(
-        text="Оф. канал Telegram",
-        url="tg://resolve?domain=telegram")
-    )
-
-    # Чтобы иметь возможность показать ID-кнопку,
-    # У юзера должен быть False флаг has_private_forwards
-    user_id = message.from_user.id
-    chat_info = await bot.get_chat(user_id)
-    if not chat_info.has_private_forwards:
-        builder.row(types.InlineKeyboardButton(
-            text="Какой-то пользователь",
-            url=f"tg://user?id={user_id}")
-        )
-
-    await message.answer(
-        'Выберите ссылку',
-        reply_markup=builder.as_markup(),
-    )
-
-@dp.message(Command("random"))
-async def cmd_random(message: types.Message):
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(
-        text="Нажми меня",
-        callback_data="random_value")
-    )
-    await message.answer(
-        "Нажмите на кнопку, чтобы бот отправил число от 1 до 10",
-        reply_markup=builder.as_markup()
-    )
-
-@dp.callback_query(F.data == "random_value")
-async def send_random_value(callback: types.CallbackQuery):
-    await callback.message.answer(str(randint(1, 10)))
-    await callback.answer()
-
-@dp.message(Command("help"))
-async def process_help_command(message: types.Message):
-    await message.answer("Напиши мне что-нибудь, и я отпрпавлю этот текст тебе в ответ!")
-
-@dp.message(Command("hello"))
-async def cmd_hello(message: types.Message):
-    await message.answer(
-        f"Hello, <b>{message.from_user.full_name}</b>"
-    )
-
-@dp.message(F.text, Command("test"))
-async def any_message(message: types.Message):
-    await message.answer(
-        "Hello, <b>world</b>!"
-    )
-
-@dp.message(Command("advanced_example"))
-async def cmd_advanced_example(message: types.Message):
-    content = as_list(
-        as_marked_section(
-            Bold("Success:"),
-            "Test 1",
-            "Test 3",
-            "Test 4",
-            marker="✅ ",
-        ),
-        as_marked_section(
-            Bold("Failed:"),
-            "Test 2",
-            marker="❌ ",
-        ),
-        as_marked_section(
-            Bold("Summary:"),
-            as_key_value("Total", 4),
-            as_key_value("Success", 3),
-            as_key_value("Failed", 1),
-            marker="  ",
-        ),
-        HashTag("#test"),
-        sep="\n\n",
-    )
-    await message.answer(**content.as_kwargs())
-
-@dp.message(F.photo)
-async def download_photo(message: types.Message, bot: Bot):
-    await bot.download(
-        message.photo[-1],
-        destination=f"tmp/{message.photo[-1].file_id}.jpg"
-    )
-
-
-@dp.message(F.sticker)
-async def download_sticker(message: types.Message, bot: Bot):
-    await bot.download(
-        message.sticker,
-        # для Windows пути надо подправить
-        destination=f"tmp/{message.sticker.file_id}.webp"
-    )
-
-@dp.message(F.animation)
-async def echo_gif(message: types.Message):
-    await message.reply_animation(message.animation.file_id)
-
-@dp.message()
-async def echo_message(msg: types.Message):
-    await bot.send_message(msg.from_user.id, msg.text)
-
-
 # Запуск процесса поллинга новых апдейтов
 async def main():
+    # Включаем логирование, чтобы не пропустить важные сообщения
+    logging.basicConfig(level=logging.INFO)
+    # Объект бота
+    bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(
+            parse_mode=ParseMode.HTML
+        ))
+    dp = Dispatcher()
+    dp.include_routers(questions.router)
+    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 
