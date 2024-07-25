@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
-from handlers import questions
+from handlers import questions, openai
 
 
 from config_reader import config
@@ -17,7 +17,7 @@ async def main():
             parse_mode=ParseMode.HTML
         ))
     dp = Dispatcher()
-    dp.include_routers(questions.router)
+    dp.include_routers(openai.router)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 

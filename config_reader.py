@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     # Желательно вместо str использовать SecretStr 
     # для конфиденциальных данных, например, токена бота
     bot_token: SecretStr
+    openai_key : SecretStr
+    openai_key_personal : SecretStr
 
     # Начиная со второй версии pydantic, настройки класса настроек задаются
     # через model_config
