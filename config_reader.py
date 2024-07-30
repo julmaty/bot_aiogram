@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     bot_token: SecretStr
     openai_key : SecretStr
     openai_key_personal : SecretStr
+    pinecone_key : SecretStr
 
     # Начиная со второй версии pydantic, настройки класса настроек задаются
     # через model_config
