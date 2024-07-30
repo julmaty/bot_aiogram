@@ -2,10 +2,14 @@ from aiogram import Bot, Router, types, F
 from aiogram.filters.command import Command
 from aiogram.client.default import DefaultBotProperties
 from pinecone import Pinecone, ServerlessSpec
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 from config_reader import config
+import os
 
 from openai import OpenAI
 
+os.environ["OPENAI_API_KEY"] = config.openai_key_personal.get_secret_value()
 router = Router()
 tokenAI=config.openai_key_personal.get_secret_value()
 tokenPC=config.pinecone_key.get_secret_value()
@@ -13,8 +17,22 @@ client = OpenAI(
   api_key=tokenAI
 )
 pc = Pinecone(api_key=tokenPC)
+llm = ChatOpenAI(
+    model="gpt-3.5-turbo",
+    temperature=0.7,
+)
+# Prompt Template
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", "Generate a list of 10 synonyms for the following word. Return the results as a comma seperated list."),
+        ("human", "{input}")
+    ]
+)
 
-
+@router.message(Command("llm"))
+async def langchainllm(message: types.Message):
+    response = llm.invoke("Write a poem about AI")
+    await message.answer(response.content)
 
 @router.message(Command("help"))
 async def process_help_command(message: types.Message):
@@ -80,6 +98,19 @@ async def presentation(message: types.Message):
         messages=[
             {"role": "system", "content": "Ты креативный аналитик в команде программистов"},
             {"role": "user", "content": "Напиши план презентации сервиса Помощник по организации стажировок и практик. План должен включать в себя задачи, которые решает сервис, его актуальность, перспективы развития сервия и другие пункты. Формулировки должны быть продающими, сформулированы креативно"},
+        ]
+    )
+    res = response.choices[0].message.content
+
+    await message.answer(res)
+
+@router.message(Command("tasks"))
+async def tasks(message: types.Message):
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Ты аналитик в команде программистов на хакатоне"},
+            {"role": "user", "content": "Напиши список задач, которые команде необходимо реализовать для подготовки проекта Помощник по организации стажировок и практик. Распредели эти задачи между 4 учасниками команды: бэкенд-разработчик, фронтенд-разработчик, дизайнер, аналитик"},
         ]
     )
     res = response.choices[0].message.content
