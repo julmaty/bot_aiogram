@@ -1,9 +1,15 @@
 from aiogram import Bot, Router, types, F
-from aiogram.filters.command import Command
+from aiogram.filters.command import Command, CommandObject
 from aiogram.client.default import DefaultBotProperties
 from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_community.document_loaders import WebBaseLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores.faiss import FAISS
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from config_reader import config
 import os
 
@@ -29,10 +35,64 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+chain1 = prompt | llm
+
 @router.message(Command("llm"))
-async def langchainllm(message: types.Message):
-    response = llm.invoke("Write a poem about AI")
+async def langchainllm(message: types.Message, command: CommandObject):
+    response = chain1.invoke({"input": command.args})
     await message.answer(response.content)
+
+
+def get_docs():
+    loader = WebBaseLoader('https://python.langchain.com/docs/expression_language/')
+    docs = loader.load()
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=200,
+        chunk_overlap=20
+    )
+
+    splitDocs = text_splitter.split_documents(docs)
+
+    return splitDocs
+
+def create_vector_store(docs):
+    embedding = OpenAIEmbeddings()
+    vectorStore = FAISS.from_documents(docs, embedding=embedding)
+    return vectorStore
+
+def create_chain(vectorStore):
+    model = ChatOpenAI(
+        temperature=0.4,
+        model="gpt-3.5-turbo"
+    )
+
+    prompt2 = ChatPromptTemplate.from_template("""
+    Answer the user's question.
+    Context: {context}
+    Question: {input}
+    """)
+
+    # chain = prompt | model
+    document_chain = create_stuff_documents_chain(
+        llm=model,
+        prompt=prompt2
+    )
+
+    retriever = vectorStore.as_retriever()
+
+    retrieval_chain = create_retrieval_chain(retriever, document_chain)
+
+    return retrieval_chain
+
+docs = get_docs()
+vectorStore = create_vector_store(docs)
+chain2 = create_chain(vectorStore)
+
+@router.message(Command("llm2"))
+async def langchainllm(message: types.Message):
+    response = chain2.invoke({"input": "What is LCEL?"})
+    await message.answer(response["answer"])
 
 @router.message(Command("help"))
 async def process_help_command(message: types.Message):
