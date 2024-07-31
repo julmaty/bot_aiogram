@@ -11,6 +11,9 @@ from contextlib import suppress
 from aiogram.exceptions import TelegramBadRequest
 from typing import Optional
 from aiogram.filters.callback_data import CallbackData
+from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
+from aiogram.filters.state import State, StatesGroup
 
 router = Router()
 
@@ -85,6 +88,40 @@ async def cmd_start(message: types.Message):
         text="Задание на хакатон")
     )
     await message.answer("Какая задача интересует?", reply_markup=builder.as_markup(resize_keyboard=True))
+
+@router.message(F.text.lower() == "задание на хакатон")
+async def zadaniye(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = f"Текущее описание: \n{data['zadaniye_descr']} \n \nВы хотите указать другое задание?"     
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nВы хотите указать задание?"
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="Ввести",
+        callback_data="yes_descr")
+    )
+    await message.answer(
+        res,
+        reply_markup=builder.as_markup()
+    )
+
+class Task_descr(StatesGroup):
+    opisaniye = State()
+    name = State()
+
+@router.callback_query(F.data == "yes_descr")
+async def enter_descr(callback: types.CallbackQuery, state: FSMContext):   
+    await callback.message.answer("Введите описание:")
+    await state.set_state(Task_descr.opisaniye)
+
+@router.message(Task_descr.opisaniye)
+async def food_chosen(message: types.Message, state: FSMContext):
+    await state.update_data(zadaniye_descr=message.text)
+    await message.answer(
+        text="Описание сохранено"
+    )
+    await state.set_state(None)
 
 @router.message(F.text.lower() == "идеи")
 async def with_puree(message: types.Message):
