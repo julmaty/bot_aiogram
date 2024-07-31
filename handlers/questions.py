@@ -71,21 +71,55 @@ async def callbacks_num_change_fab(
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
     kb = [
-        [types.KeyboardButton(text="С пюрешкой"),
-         types.KeyboardButton(text="Без пюрешки")]
+        [types.KeyboardButton(text="Идеи"),
+         types.KeyboardButton(text="Код"),
+         types.KeyboardButton(text="Аналитика")]
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Выберите способ подачи")
-    await message.answer("Как подавать котлеты?", reply_markup=keyboard)
+        resize_keyboard=True)
+    await message.answer("Какая задача интересует?", reply_markup=keyboard)
 
-@router.message(F.text.lower() == "с пюрешкой")
+@router.message(F.text.lower() == "идеи")
 async def with_puree(message: types.Message):
     await message.reply("Отличный выбор!", reply_markup=types.ReplyKeyboardRemove())
 
-@router.message(F.text.lower() == "без пюрешки")
-async def without_puree(message: types.Message):
-    await message.reply("Так невкусно!", reply_markup=types.ReplyKeyboardRemove())
+@router.message(F.text.lower() == "код")
+async def codeChoice(message: types.Message):
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="C#",
+        callback_data="c#")
+    )
+    builder.add(types.InlineKeyboardButton(
+        text="Vue.js",
+        callback_data="js")
+    )
+    await message.answer(
+        "Какую технологию использовать?",
+        reply_markup=builder.as_markup()
+    )
+    await message.reply(reply_markup=types.ReplyKeyboardRemove())
+
+@router.message(F.text.lower() == "аналитика")
+async def codeChoice(message: types.Message):
+    builder = InlineKeyboardBuilder()
+    builder.row(types.InlineKeyboardButton(
+        text="Написать user-cases",
+        callback_data="analisis")
+    )
+    builder.row(types.InlineKeyboardButton(
+        text="Подготовить план презентации",
+        callback_data="presentation")
+    )
+    builder.row(types.InlineKeyboardButton(
+        text="Распределить задачи",
+        callback_data="tasks")
+    )
+    await message.answer(
+        "Что необходимо сделать?",
+        reply_markup=builder.as_markup()
+    )
+    await message.reply(reply_markup=types.ReplyKeyboardRemove())
 
 @router.message(Command("inline_url"))
 async def cmd_inline_url(message: types.Message, bot: Bot):

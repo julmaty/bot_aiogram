@@ -10,6 +10,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores.faiss import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from aiogram.filters.callback_data import CallbackData
 from config_reader import config
 import os
 
@@ -111,8 +112,8 @@ async def ideas(message: types.Message):
 
     await message.answer(res)
 
-@router.message(Command("codeC"))
-async def code(message: types.Message):
+@router.callback_query(F.data == "c#")
+async def code(callback: types.CallbackQuery):
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -122,24 +123,26 @@ async def code(message: types.Message):
     )
     res = response.choices[0].message.content
 
-    await message.answer(f"{res}", parse_mode=None)
+    await callback.message.answer(f"{res}", parse_mode=None)
+    await callback.answer()
 
-@router.message(Command("codeC"))
-async def codeFront(message: types.Message):
+@router.callback_query(F.data == "js")
+async def codeFront(callback: types.CallbackQuery):
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"},
-            {"role": "user", "content": "Напиши API для сервиса Помощника по организации стажировок и практик"},
+            {"role": "system", "content": "Ты фронтенд-разработчик, пишущий на языке js c использованием фреймворка Vue.js, а также дизайнер-верстальщик"},
+            {"role": "user", "content": "Напиши фронтеннд с оригинальным дизайном для сервиса Помощника по организации стажировок и практик"},
         ]
     )
     res = response.choices[0].message.content
 
-    await message.answer(f"{res}", parse_mode=None)
+    res = response.choices[0].mes
+    await callback.message.answer(f"{res}", parse_mode=None)
+    await callback.answer()
 
-
-@router.message(Command("analisis"))
-async def analisis(message: types.Message):
+@router.callback_query(F.data == "analisis")
+async def analisis(callback: types.CallbackQuery):
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -149,10 +152,11 @@ async def analisis(message: types.Message):
     )
     res = response.choices[0].message.content
 
-    await message.answer(res)
+    await callback.message.answer(res)
+    await callback.answer()
 
-@router.message(Command("presentation"))
-async def presentation(message: types.Message):
+@router.callback_query(F.data == "presentation")
+async def presentation(callback: types.CallbackQuery):
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -162,10 +166,11 @@ async def presentation(message: types.Message):
     )
     res = response.choices[0].message.content
 
-    await message.answer(res)
+    await callback.message.answer(res)
+    await callback.answer()
 
-@router.message(Command("tasks"))
-async def tasks(message: types.Message):
+@router.callback_query(F.data == "tasks")
+async def tasks(callback: types.CallbackQuery):
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -175,7 +180,8 @@ async def tasks(message: types.Message):
     )
     res = response.choices[0].message.content
 
-    await message.answer(res)
+    await callback.message.answer(res)
+    await callback.answer()
 
 
 @router.message(Command("cat"))
