@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.formatting import (
     Bold, as_list, as_marked_section, as_key_value, HashTag
 )
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from random import randint
 from contextlib import suppress
 from aiogram.exceptions import TelegramBadRequest
@@ -70,14 +70,21 @@ async def callbacks_num_change_fab(
 # Хэндлер на команду /start
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    kb = [
-        [types.KeyboardButton(text="Идеи"),
-         types.KeyboardButton(text="Код"),
-         types.KeyboardButton(text="Аналитика")]
-    ]
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb,
-        resize_keyboard=True)
-    await message.answer("Какая задача интересует?", reply_markup=keyboard)
+    builder = ReplyKeyboardBuilder()
+
+    builder.row(
+        types.KeyboardButton(text="Идеи"),
+        types.KeyboardButton(text="Код")
+    )
+    builder.row(
+        types.KeyboardButton(text="Аналитика"),
+        types.KeyboardButton(text="Дизайн")
+    )
+
+    builder.row(types.KeyboardButton(
+        text="Задание на хакатон")
+    )
+    await message.answer("Какая задача интересует?", reply_markup=builder.as_markup(resize_keyboard=True))
 
 @router.message(F.text.lower() == "идеи")
 async def with_puree(message: types.Message):
@@ -98,7 +105,6 @@ async def codeChoice(message: types.Message):
         "Какую технологию использовать?",
         reply_markup=builder.as_markup()
     )
-    await message.reply(reply_markup=types.ReplyKeyboardRemove())
 
 @router.message(F.text.lower() == "аналитика")
 async def codeChoice(message: types.Message):
@@ -119,7 +125,18 @@ async def codeChoice(message: types.Message):
         "Что необходимо сделать?",
         reply_markup=builder.as_markup()
     )
-    await message.reply(reply_markup=types.ReplyKeyboardRemove())
+
+@router.message(F.text.lower() == "дизайн")
+async def design(message: types.Message):
+    builder = InlineKeyboardBuilder()
+    builder.row(types.InlineKeyboardButton(
+        text="Создать логотип",
+        callback_data="logo")
+    )
+    await message.answer(
+        "Что необходимо сделать?",
+        reply_markup=builder.as_markup()
+    )
 
 @router.message(Command("inline_url"))
 async def cmd_inline_url(message: types.Message, bot: Bot):

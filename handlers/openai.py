@@ -124,7 +124,6 @@ async def code(callback: types.CallbackQuery):
     res = response.choices[0].message.content
 
     await callback.message.answer(f"{res}", parse_mode=None)
-    await callback.answer()
 
 @router.callback_query(F.data == "js")
 async def codeFront(callback: types.CallbackQuery):
@@ -139,7 +138,6 @@ async def codeFront(callback: types.CallbackQuery):
 
     res = response.choices[0].mes
     await callback.message.answer(f"{res}", parse_mode=None)
-    await callback.answer()
 
 @router.callback_query(F.data == "analisis")
 async def analisis(callback: types.CallbackQuery):
@@ -153,7 +151,6 @@ async def analisis(callback: types.CallbackQuery):
     res = response.choices[0].message.content
 
     await callback.message.answer(res)
-    await callback.answer()
 
 @router.callback_query(F.data == "presentation")
 async def presentation(callback: types.CallbackQuery):
@@ -167,7 +164,6 @@ async def presentation(callback: types.CallbackQuery):
     res = response.choices[0].message.content
 
     await callback.message.answer(res)
-    await callback.answer()
 
 @router.callback_query(F.data == "tasks")
 async def tasks(callback: types.CallbackQuery):
@@ -181,18 +177,17 @@ async def tasks(callback: types.CallbackQuery):
     res = response.choices[0].message.content
 
     await callback.message.answer(res)
-    await callback.answer()
 
 
-@router.message(Command("cat"))
-async def echo_gif(message: types.Message):
+@router.callback_query(F.data == "logo")
+async def echo_gif(callback: types.CallbackQuery):
     response = client.images.generate(
-        model="dall-e-2",
-        prompt="a white siamese cat",
+        model="dall-e-3",
+        prompt="логотип для сервиса Помощник по организации стажировок и практик",
         size="1024x1024",
         quality="standard",
         n=1,
     )
     image_url = response.data[0].url
 
-    await message.reply_photo(image_url)
+    await callback.message.reply_photo(image_url)
