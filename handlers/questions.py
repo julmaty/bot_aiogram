@@ -14,6 +14,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 from aiogram.filters.state import State, StatesGroup
+from handlers.openai import name_ideas_Call, code_Call, codeFront_Call, analisis_Call, presentation_Call, tasks_Call, logo_Call
 
 router = Router()
 
@@ -119,10 +120,38 @@ async def enter_descr(callback: types.CallbackQuery, state: FSMContext):
 @router.message(Task_descr.opisaniye)
 async def food_chosen(message: types.Message, state: FSMContext):
     await state.update_data(zadaniye_descr=message.text)
-    await message.answer(
+    data = await state.get_data()
+    await state.set_state(None)
+    if (('last_call' in data) and (data["last_call"] != None)):
+        await message.answer(
+        text="Описание сохранено. Запрос отправлен в модель"
+        )
+        match data["last_call"]:
+            case "name_ideas":
+                res = await name_ideas_Call(state)
+                await message.answer(res)
+            case "code":
+                res = await code_Call(state)
+                await message.answer(res)
+            case "codeFront":
+                res = await codeFront_Call(state)
+                await message.answer(res)
+            case "analisis":
+                res = await analisis_Call(state)
+                await message.answer(res)
+            case "presentation":
+                res = await presentation_Call(state)
+                await message.answer(res)
+            case "tasks":
+                res = await tasks_Call(state)
+                await message.answer(res)
+            case "logo":
+                image_url = await logo_Call(state)
+                await message.answer_photo(image_url)
+    else:
+        await message.answer(
         text="Описание сохранено"
     )
-    await state.set_state(None)
 
 @router.message(F.text.lower() == "идеи")
 async def with_puree(message: types.Message):

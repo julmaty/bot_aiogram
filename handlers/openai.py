@@ -12,6 +12,8 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.filters.state import State, StatesGroup
 from config_reader import config
 import os
 
@@ -87,14 +89,14 @@ def create_chain(vectorStore):
 
     return retrieval_chain
 
-docs = get_docs()
-vectorStore = create_vector_store(docs)
-chain2 = create_chain(vectorStore)
+#docs = get_docs()
+#vectorStore = create_vector_store(docs)
+#chain2 = create_chain(vectorStore)
 
-@router.message(Command("llm2"))
-async def langchainllm(message: types.Message):
-    response = chain2.invoke({"input": "What is LCEL?"})
-    await message.answer(response["answer"])
+#@router.message(Command("llm2"))
+#async def langchainllm(message: types.Message):
+    #response = chain2.invoke({"input": "What is LCEL?"})
+    #await message.answer(response["answer"])
 
 @router.message(Command("help"))
 async def process_help_command(message: types.Message):
@@ -115,23 +117,37 @@ async def ideas(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(res)
     await callback.answer()
 
-@router.callback_query(F.data == "name_ideas")
-async def ideas(callback: types.CallbackQuery, state: FSMContext):
+async def name_ideas_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Ты креативный менеджер в компьютерной компании"},
-            {"role": "user", "content": f"Придумай 10 оригинальных названий для программы. Описание проекта: {data['zadaniye_descr']}"},
-        ]
-    )
-    res = response.choices[0].message.content
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Ты креативный менеджер в компьютерной компании"},
+                {"role": "user", "content": f"Придумай 10 оригинальных названий для программы. Описание проекта: {data['zadaniye_descr']}"},
+            ]
+        )
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
 
-    await callback.message.answer(res)
+class Task_descr(StatesGroup):
+    opisaniye = State()
+    name = State()
+
+@router.callback_query(F.data == "name_ideas")
+async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = await name_ideas_Call(state)
+        await state.update_data(last_call=None)
+        await callback.message.answer(res)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="name_ideas")
+        await callback.message.answer(res)
     await callback.answer()
 
-@router.callback_query(F.data == "c#")
-async def code(callback: types.CallbackQuery, state: FSMContext):
+async def code_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -140,13 +156,23 @@ async def code(callback: types.CallbackQuery, state: FSMContext):
             {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
-    res = response.choices[0].message.content
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
 
-    await callback.message.answer(f"{res}", parse_mode=None)
+@router.callback_query(F.data == "c#")
+async def code(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = code_Call(state)
+        await callback.message.answer(f"{res}", parse_mode=None)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="code")
+        await callback.message.answer(res)
     await callback.answer()
 
-@router.callback_query(F.data == "js")
-async def codeFront(callback: types.CallbackQuery, state: FSMContext):
+async def codeFront_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -155,14 +181,23 @@ async def codeFront(callback: types.CallbackQuery, state: FSMContext):
             {"role": "user", "content": f"Напиши фронтеннд с оригинальным дизайном для сервиса Помощника по организации стажировок и практик. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
-    res = response.choices[0].message.content
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
 
-    res = response.choices[0].mes
-    await callback.message.answer(f"{res}", parse_mode=None)
+@router.callback_query(F.data == "js")
+async def codeFront(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = codeFront_Call(state)
+        await callback.message.answer(f"{res}", parse_mode=None)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="codeFront")
+        await callback.message.answer(res)
     await callback.answer()
 
-@router.callback_query(F.data == "analisis")
-async def analisis(callback: types.CallbackQuery, state: FSMContext):
+async def analisis_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -171,13 +206,23 @@ async def analisis(callback: types.CallbackQuery, state: FSMContext):
             {"role": "user", "content": f"Напиши юзер-кейсы для сервиса. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
-    res = response.choices[0].message.content
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
 
+@router.callback_query(F.data == "analisis")
+async def analisis(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = analisis_Call(state)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="analisis")
     await callback.message.answer(res)
     await callback.answer()
 
-@router.callback_query(F.data == "presentation")
-async def presentation(callback: types.CallbackQuery, state: FSMContext):
+
+async def presentation_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -186,13 +231,22 @@ async def presentation(callback: types.CallbackQuery, state: FSMContext):
             {"role": "user", "content": f"Напиши план презентации сервиса. План должен включать в себя задачи, которые решает сервис, его актуальность, перспективы развития сервия и другие пункты. Формулировки должны быть продающими, сформулированы креативно. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
-    res = response.choices[0].message.content
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
 
+@router.callback_query(F.data == "presentation")
+async def presentation(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = presentation_Call(state)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="presentation")
     await callback.message.answer(res)
     await callback.answer()
 
-@router.callback_query(F.data == "tasks")
-async def tasks(callback: types.CallbackQuery, state: FSMContext):
+async def tasks_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -201,22 +255,44 @@ async def tasks(callback: types.CallbackQuery, state: FSMContext):
             {"role": "user", "content": f"Напиши список задач, которые команде необходимо реализовать для подготовки проекта. Распредели эти задачи между 4 учасниками команды: бэкенд-разработчик, фронтенд-разработчик, дизайнер, аналитик. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
-    res = response.choices[0].message.content
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
+
+@router.callback_query(F.data == "tasks")
+async def tasks(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = tasks_Call(state)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="tasks")
 
     await callback.message.answer(res)
     await callback.answer()
 
-
-@router.callback_query(F.data == "logo")
-async def echo_gif(callback: types.CallbackQuery):
+async def logo_Call(state: FSMContext):
+    data = await state.get_data()
     response = client.images.generate(
         model="dall-e-3",
-        prompt="логотип для сервиса Помощник по организации стажировок и практик",
+        prompt=f"логотип для сервиса. Описание проекта: {data['zadaniye_descr']}",
         size="1024x1024",
         quality="standard",
         n=1,
     )
-    image_url = response.data[0].url
+    await state.update_data(last_call=None)
+    return response.data[0].url
 
-    await callback.message.reply_photo(image_url)
+@router.callback_query(F.data == "logo")
+async def logo(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        image_url = logo_Call(state)
+        await callback.message.reply_photo(image_url)
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="logo")
+        await callback.message.answer(res)
+
     await callback.answer()
