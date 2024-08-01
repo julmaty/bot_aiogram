@@ -132,7 +132,8 @@ async def name_ideas_Call(state: FSMContext):
 
 class Task_descr(StatesGroup):
     opisaniye = State()
-    name = State()
+    code_history = State()
+    codeFront_history = State()
 
 @router.callback_query(F.data == "name_ideas")
 async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
@@ -149,35 +150,45 @@ async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 async def code_Call(state: FSMContext):
-    chat_history = []
+    await state.update_data(chat_code_history = [])
     data = await state.get_data()
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"},
-            {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"},
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo"
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"),
+            ("human", f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью")
         ]
     )
-    chat_history.append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
-    chat_history.append(AIMessage(content=response.choices[0].message.content))
+    chain = prompt | llm
+    response = chain.invoke({"input": data['zadaniye_descr']})
+    data["chat_code_history"].append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
+    data["chat_code_history"].append(AIMessage(content=response.content))
     await state.update_data(last_call=None)
-    return response.choices[0].message.content
+    await state.set_state(Task_descr.code_history)
+    return response.content
 
-async def code_Call_history(state: FSMContext):
-    chat_history = []
+async def code_Call_history(state: FSMContext, user_input):
     data = await state.get_data()
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"},
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo"
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"),
             MessagesPlaceholder(variable_name="chat_history"),
-            {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"},
+            ("human", "{input}")
         ]
     )
-    chat_history.append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
-    chat_history.append(AIMessage(content=response.choices[0].message.content))
-    await state.update_data(last_call=None)
-    return response.choices[0].message.content
+    chain = prompt | llm
+    response = chain.invoke({
+        "input": user_input,
+        "chat_history": data["chat_code_history"]
+    })
+    data["chat_code_history"].append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
+    data["chat_code_history"].append(AIMessage(content=response.content))
+    return response.content
 
 @router.callback_query(F.data == "c#")
 async def code(callback: types.CallbackQuery, state: FSMContext):
@@ -185,12 +196,23 @@ async def code(callback: types.CallbackQuery, state: FSMContext):
     if ('zadaniye_descr' in data):
         res = code_Call(state)
         await callback.message.answer(f"{res}", parse_mode=None)
+        await callback.message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        )
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="code")
         await callback.message.answer(res)
     await callback.answer()
+
+@router.message(Task_descr.code_history)
+async def code_repeat(message: types.Message, state: FSMContext):
+    res = await code_Call_history(state, message.text)
+    await message.answer(f"{res}", parse_mode=None)
+    await message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        )
 
 async def codeFront_Call(state: FSMContext):
     data = await state.get_data()
