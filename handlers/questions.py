@@ -109,7 +109,8 @@ async def zadaniye(message: types.Message, state: FSMContext):
 
 class Task_descr(StatesGroup):
     opisaniye = State()
-    name = State()
+    code_history = State()
+    codeFront_history = State()
 
 @router.callback_query(F.data == "yes_descr")
 async def enter_descr(callback: types.CallbackQuery, state: FSMContext):   
@@ -132,10 +133,10 @@ async def food_chosen(message: types.Message, state: FSMContext):
                 await message.answer(res)
             case "code":
                 res = await code_Call(state)
-                await message.answer(res)
+                await message.answer(f"{res}", parse_mode=None)
             case "codeFront":
                 res = await codeFront_Call(state)
-                await message.answer(res)
+                await message.answer(f"{res}", parse_mode=None)
             case "analisis":
                 res = await analisis_Call(state)
                 await message.answer(res)

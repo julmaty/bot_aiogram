@@ -12,8 +12,9 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.state import State, StatesGroup
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.prompts import MessagesPlaceholder
 from config_reader import config
 import os
 
@@ -148,14 +149,33 @@ async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 async def code_Call(state: FSMContext):
+    chat_history = []
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"},
-            {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}"},
+            {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"},
         ]
     )
+    chat_history.append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
+    chat_history.append(AIMessage(content=response.choices[0].message.content))
+    await state.update_data(last_call=None)
+    return response.choices[0].message.content
+
+async def code_Call_history(state: FSMContext):
+    chat_history = []
+    data = await state.get_data()
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"},
+            MessagesPlaceholder(variable_name="chat_history"),
+            {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"},
+        ]
+    )
+    chat_history.append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
+    chat_history.append(AIMessage(content=response.choices[0].message.content))
     await state.update_data(last_call=None)
     return response.choices[0].message.content
 
