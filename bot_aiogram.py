@@ -17,7 +17,7 @@ async def main():
             parse_mode=ParseMode.HTML
         ))
     dp = Dispatcher()
-    dp.include_routers(openai.router, questions.router)
+    dp.include_routers(questions.router, openai.router)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 

@@ -41,18 +41,20 @@ async def cmd_start(message: types.Message):
 async def zadaniye(message: types.Message, state: FSMContext):
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = f"Текущее описание: \n{data['zadaniye_descr']} \n \nВы хотите указать другое задание?"     
+        res = f"Текущее описание: \n{data['zadaniye_descr']} \n \nВы хотите указать другое задание?"
+        builder = InlineKeyboardBuilder()
+        builder.add(types.InlineKeyboardButton(
+            text="Ввести",
+            callback_data="yes_descr")
+        )
+        await message.answer(
+            res,
+            reply_markup=builder.as_markup()
+        )     
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nВы хотите указать задание?"
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(
-        text="Ввести",
-        callback_data="yes_descr")
-    )
-    await message.answer(
-        res,
-        reply_markup=builder.as_markup()
-    )
+        res = f"В настоящий момент задание на хакатон не указано. \n \nВведите описание:"
+        await state.set_state(Task_descr.opisaniye)
+        await message.answer(res)
 
 class Task_descr(StatesGroup):
     opisaniye = State()
@@ -102,7 +104,8 @@ async def food_chosen(message: types.Message, state: FSMContext):
     )
 
 @router.message(F.text.lower() == "идеи")
-async def with_puree(message: types.Message):
+async def ideasChoice(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="Идеи проекта",
@@ -118,7 +121,8 @@ async def with_puree(message: types.Message):
     )
 
 @router.message(F.text.lower() == "код")
-async def codeChoice(message: types.Message):
+async def codeChoice(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="C#",
@@ -134,7 +138,8 @@ async def codeChoice(message: types.Message):
     )
 
 @router.message(F.text.lower() == "аналитика")
-async def codeChoice(message: types.Message):
+async def codeChoice(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(
         text="Написать user-cases",
@@ -154,7 +159,8 @@ async def codeChoice(message: types.Message):
     )
 
 @router.message(F.text.lower() == "дизайн")
-async def design(message: types.Message):
+async def design(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(
         text="Создать логотип",
@@ -166,10 +172,6 @@ async def design(message: types.Message):
     )
 
 @router.message(Command("help"))
-async def process_help_command(message: types.Message):
+async def process_help_command(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     await message.answer("Это бот, помогающий команде на хакатоне. Выбери команду из меню.")
-
-
-@router.message()
-async def def_message(message: types.Message):
-    await message.answer("Я не понимаю. Выбери команду из меню.")

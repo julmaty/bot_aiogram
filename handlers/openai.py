@@ -15,6 +15,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import State, StatesGroup
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import MessagesPlaceholder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from config_reader import config
 import os
 
@@ -99,12 +100,10 @@ def create_chain(vectorStore):
     #response = chain2.invoke({"input": "What is LCEL?"})
     #await message.answer(response["answer"])
 
-@router.message(Command("help"))
-async def process_help_command(message: types.Message):
-    await message.answer("Напиши мне что-нибудь, и я отпрпавлю этот текст тебе в ответ!")
 
 @router.callback_query(F.data == "ideas")
 async def ideas(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -137,6 +136,7 @@ class Task_descr(StatesGroup):
 
 @router.callback_query(F.data == "name_ideas")
 async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = await name_ideas_Call(state)
@@ -206,13 +206,6 @@ async def code(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer(res)
     await callback.answer()
 
-@router.message(Task_descr.code_history)
-async def code_repeat(message: types.Message, state: FSMContext):
-    res = await code_Call_history(state, message.text)
-    await message.answer(f"{res}", parse_mode=None)
-    await message.answer(
-        text="Если хотите задать дополнительные вопросы по коду, введите их"
-        )
 
 async def codeFront_Call(state: FSMContext):
     await state.update_data(chat_codeFront_history = [])
@@ -268,14 +261,6 @@ async def codeFront(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer(res)
     await callback.answer()
 
-@router.message(Task_descr.codeFront_history)
-async def code_repeat(message: types.Message, state: FSMContext):
-    res = await codeFront_Call_history(state, message.text)
-    await message.answer(f"{res}", parse_mode=None)
-    await message.answer(
-        text="Если хотите задать дополнительные вопросы по коду, введите их"
-        )
-
 async def analisis_Call(state: FSMContext):
     data = await state.get_data()
     response = client.chat.completions.create(
@@ -290,6 +275,7 @@ async def analisis_Call(state: FSMContext):
 
 @router.callback_query(F.data == "analisis")
 async def analisis(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = analisis_Call(state)
@@ -315,6 +301,7 @@ async def presentation_Call(state: FSMContext):
 
 @router.callback_query(F.data == "presentation")
 async def presentation(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = presentation_Call(state)
@@ -339,6 +326,7 @@ async def tasks_Call(state: FSMContext):
 
 @router.callback_query(F.data == "tasks")
 async def tasks(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = tasks_Call(state)
@@ -364,6 +352,7 @@ async def logo_Call(state: FSMContext):
 
 @router.callback_query(F.data == "logo")
 async def logo(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         image_url = logo_Call(state)
@@ -375,3 +364,37 @@ async def logo(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer(res)
 
     await callback.answer()
+
+@router.message(Task_descr.code_history)
+async def code_repeat(message: types.Message, state: FSMContext):
+    res = await code_Call_history(state, message.text)
+    await message.answer(f"{res}", parse_mode=None)
+    await message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        )
+    
+@router.message(Task_descr.codeFront_history)
+async def codeFront_repeat(message: types.Message, state: FSMContext):
+    res = await codeFront_Call_history(state, message.text)
+    await message.answer(f"{res}", parse_mode=None)
+    await message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        )
+    
+@router.message()
+async def def_message(message: types.Message):
+    builder = ReplyKeyboardBuilder()
+
+    builder.row(
+        types.KeyboardButton(text="Идеи"),
+        types.KeyboardButton(text="Код")
+    )
+    builder.row(
+        types.KeyboardButton(text="Аналитика"),
+        types.KeyboardButton(text="Дизайн")
+    )
+
+    builder.row(types.KeyboardButton(
+        text="Задание на хакатон")
+    )
+    await message.answer("Я не понимаю. Выбери команду из меню.", reply_markup=builder.as_markup(resize_keyboard=True))
