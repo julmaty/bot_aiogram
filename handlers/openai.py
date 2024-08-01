@@ -192,6 +192,7 @@ async def code_Call_history(state: FSMContext, user_input):
 
 @router.callback_query(F.data == "c#")
 async def code(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = code_Call(state)
@@ -250,6 +251,7 @@ async def codeFront_Call_history(state: FSMContext, user_input):
 
 @router.callback_query(F.data == "js")
 async def codeFront(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = codeFront_Call(state)

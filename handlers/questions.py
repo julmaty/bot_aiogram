@@ -20,7 +20,8 @@ router = Router()
 
 # Хэндлер на команду /start
 @router.message(Command("start"))
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     builder = ReplyKeyboardBuilder()
 
     builder.row(
@@ -39,6 +40,7 @@ async def cmd_start(message: types.Message):
 
 @router.message(F.text.lower() == "задание на хакатон")
 async def zadaniye(message: types.Message, state: FSMContext):
+    await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = f"Текущее описание: \n{data['zadaniye_descr']} \n \nВы хотите указать другое задание?"
