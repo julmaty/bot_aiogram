@@ -186,7 +186,7 @@ async def code_Call_history(state: FSMContext, user_input):
         "input": user_input,
         "chat_history": data["chat_code_history"]
     })
-    data["chat_code_history"].append(HumanMessage(content=f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код программы полностью"))
+    data["chat_code_history"].append(HumanMessage(content=user_input))
     data["chat_code_history"].append(AIMessage(content=response.content))
     return response.content
 
@@ -215,16 +215,45 @@ async def code_repeat(message: types.Message, state: FSMContext):
         )
 
 async def codeFront_Call(state: FSMContext):
+    await state.update_data(chat_codeFront_history = [])
     data = await state.get_data()
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Ты фронтенд-разработчик, пишущий на языке js c использованием фреймворка Vue.js, а также дизайнер-верстальщик"},
-            {"role": "user", "content": f"Напиши фронтеннд с оригинальным дизайном для сервиса Помощника по организации стажировок и практик. Описание проекта: {data['zadaniye_descr']}"},
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo"
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Ты фронтенд-разработчик, пишущий на языке js c использованием фреймворка Vue.js, а также дизайнер-верстальщик"),
+            ("human", f"Напиши фронтеннд с оригинальным дизайном для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код полностью")
         ]
     )
+    chain = prompt | llm
+    response = chain.invoke({"input": data['zadaniye_descr']})
+    data["chat_codeFront_history"].append(HumanMessage(content=f"Напиши фронтеннд с оригинальным дизайном для сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код полностью"))
+    data["chat_codeFront_history"].append(AIMessage(content=response.content))
     await state.update_data(last_call=None)
-    return response.choices[0].message.content
+    await state.set_state(Task_descr.codeFront_history)
+    return response.content
+
+async def codeFront_Call_history(state: FSMContext, user_input):
+    data = await state.get_data()
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo"
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Ты фронтенд-разработчик, пишущий на языке js c использованием фреймворка Vue.js, а также дизайнер-верстальщик"),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}")
+        ]
+    )
+    chain = prompt | llm
+    response = chain.invoke({
+        "input": user_input,
+        "chat_history": data["chat_codeFront_history"]
+    })
+    data["chat_codeFront_history"].append(HumanMessage(content=user_input))
+    data["chat_codeFront_history"].append(AIMessage(content=response.content))
+    return response.content
 
 @router.callback_query(F.data == "js")
 async def codeFront(callback: types.CallbackQuery, state: FSMContext):
@@ -238,6 +267,14 @@ async def codeFront(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data(last_call="codeFront")
         await callback.message.answer(res)
     await callback.answer()
+
+@router.message(Task_descr.codeFront_history)
+async def code_repeat(message: types.Message, state: FSMContext):
+    res = await codeFront_Call_history(state, message.text)
+    await message.answer(f"{res}", parse_mode=None)
+    await message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        )
 
 async def analisis_Call(state: FSMContext):
     data = await state.get_data()
