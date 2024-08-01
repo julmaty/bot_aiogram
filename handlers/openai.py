@@ -11,6 +11,7 @@ from langchain_community.vectorstores.faiss import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from aiogram.filters.callback_data import CallbackData
+from aiogram.fsm.context import FSMContext
 from config_reader import config
 import os
 
@@ -99,84 +100,111 @@ async def langchainllm(message: types.Message):
 async def process_help_command(message: types.Message):
     await message.answer("Напиши мне что-нибудь, и я отпрпавлю этот текст тебе в ответ!")
 
-@router.message(Command("ideas"))
-async def ideas(message: types.Message):
+@router.callback_query(F.data == "ideas")
+async def ideas(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты креативный менеджер в компьютерной компании"},
-            {"role": "user", "content": "Придумай 10 идей для программы помощника студентам"},
+            {"role": "user", "content": "Придумай 10 идей для программы в сфере городской инфраструктуры"},
         ]
     )
     res = response.choices[0].message.content
 
-    await message.answer(res)
+    await callback.message.answer(res)
+    await callback.answer()
+
+@router.callback_query(F.data == "name_ideas")
+async def ideas(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Ты креативный менеджер в компьютерной компании"},
+            {"role": "user", "content": f"Придумай 10 оригинальных названий для программы. Описание проекта: {data['zadaniye_descr']}"},
+        ]
+    )
+    res = response.choices[0].message.content
+
+    await callback.message.answer(res)
+    await callback.answer()
 
 @router.callback_query(F.data == "c#")
-async def code(callback: types.CallbackQuery):
+async def code(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты программист, пишущий на языке C# c использованием фреймворка ASP.Net Core"},
-            {"role": "user", "content": "Напиши API для сервиса Помощника по организации стажировок и практик"},
+            {"role": "user", "content": f"Напиши API для сервиса. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
     res = response.choices[0].message.content
 
     await callback.message.answer(f"{res}", parse_mode=None)
+    await callback.answer()
 
 @router.callback_query(F.data == "js")
-async def codeFront(callback: types.CallbackQuery):
+async def codeFront(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты фронтенд-разработчик, пишущий на языке js c использованием фреймворка Vue.js, а также дизайнер-верстальщик"},
-            {"role": "user", "content": "Напиши фронтеннд с оригинальным дизайном для сервиса Помощника по организации стажировок и практик"},
+            {"role": "user", "content": f"Напиши фронтеннд с оригинальным дизайном для сервиса Помощника по организации стажировок и практик. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
     res = response.choices[0].message.content
 
     res = response.choices[0].mes
     await callback.message.answer(f"{res}", parse_mode=None)
+    await callback.answer()
 
 @router.callback_query(F.data == "analisis")
-async def analisis(callback: types.CallbackQuery):
+async def analisis(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты аналитик в команде программистов"},
-            {"role": "user", "content": "Напиши юзер-кейсы для сервиса Помощник по организации стажировок и практик"},
+            {"role": "user", "content": f"Напиши юзер-кейсы для сервиса. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
     res = response.choices[0].message.content
 
     await callback.message.answer(res)
+    await callback.answer()
 
 @router.callback_query(F.data == "presentation")
-async def presentation(callback: types.CallbackQuery):
+async def presentation(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты креативный аналитик в команде программистов"},
-            {"role": "user", "content": "Напиши план презентации сервиса Помощник по организации стажировок и практик. План должен включать в себя задачи, которые решает сервис, его актуальность, перспективы развития сервия и другие пункты. Формулировки должны быть продающими, сформулированы креативно"},
+            {"role": "user", "content": f"Напиши план презентации сервиса. План должен включать в себя задачи, которые решает сервис, его актуальность, перспективы развития сервия и другие пункты. Формулировки должны быть продающими, сформулированы креативно. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
     res = response.choices[0].message.content
 
     await callback.message.answer(res)
+    await callback.answer()
 
 @router.callback_query(F.data == "tasks")
-async def tasks(callback: types.CallbackQuery):
+async def tasks(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты аналитик в команде программистов на хакатоне"},
-            {"role": "user", "content": "Напиши список задач, которые команде необходимо реализовать для подготовки проекта Помощник по организации стажировок и практик. Распредели эти задачи между 4 учасниками команды: бэкенд-разработчик, фронтенд-разработчик, дизайнер, аналитик"},
+            {"role": "user", "content": f"Напиши список задач, которые команде необходимо реализовать для подготовки проекта. Распредели эти задачи между 4 учасниками команды: бэкенд-разработчик, фронтенд-разработчик, дизайнер, аналитик. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
     res = response.choices[0].message.content
 
     await callback.message.answer(res)
+    await callback.answer()
 
 
 @router.callback_query(F.data == "logo")
@@ -191,3 +219,4 @@ async def echo_gif(callback: types.CallbackQuery):
     image_url = response.data[0].url
 
     await callback.message.reply_photo(image_url)
+    await callback.answer()

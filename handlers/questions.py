@@ -114,6 +114,7 @@ class Task_descr(StatesGroup):
 async def enter_descr(callback: types.CallbackQuery, state: FSMContext):   
     await callback.message.answer("Введите описание:")
     await state.set_state(Task_descr.opisaniye)
+    await callback.answer()
 
 @router.message(Task_descr.opisaniye)
 async def food_chosen(message: types.Message, state: FSMContext):
@@ -125,7 +126,19 @@ async def food_chosen(message: types.Message, state: FSMContext):
 
 @router.message(F.text.lower() == "идеи")
 async def with_puree(message: types.Message):
-    await message.reply("Отличный выбор!", reply_markup=types.ReplyKeyboardRemove())
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="Идеи проекта",
+        callback_data="ideas")
+    )
+    builder.add(types.InlineKeyboardButton(
+        text="Идеи названия",
+        callback_data="name_ideas")
+    )
+    await message.answer(
+        "Что вам интересно?",
+        reply_markup=builder.as_markup()
+    )
 
 @router.message(F.text.lower() == "код")
 async def codeChoice(message: types.Message):
