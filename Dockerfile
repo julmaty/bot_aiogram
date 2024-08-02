@@ -10,7 +10,7 @@ WORKDIR /telegram_bot
 COPY ./requirements.txt ./
 
 # Устанавливаем зависимости и gunicorn
-RUN pip install --upgrade pip
+RUN pip install pip==24.0
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 # Копируем файлы и билд
