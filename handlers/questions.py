@@ -1,18 +1,7 @@
-from aiogram import Bot, Router, types, F
+from aiogram import Router, types, F
 from aiogram.filters.command import Command
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
-from aiogram.utils.formatting import (
-    Bold, as_list, as_marked_section, as_key_value, HashTag
-)
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-from random import randint
-from contextlib import suppress
-from aiogram.exceptions import TelegramBadRequest
-from typing import Optional
-from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import StateFilter
 from aiogram.filters.state import State, StatesGroup
 from handlers.openai import name_ideas_Call, code_Call, codeFront_Call, codePy_Call, analisis_Call, presentation_Call, tasks_utils, logo_Call, documentation_get
 

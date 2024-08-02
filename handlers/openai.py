@@ -1,7 +1,4 @@
-from aiogram import Bot, Router, types, F
-from aiogram.filters.command import Command, CommandObject
-from aiogram.client.default import DefaultBotProperties
-from pinecone import Pinecone, ServerlessSpec
+from aiogram import Router, types, F
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.document_loaders import WebBaseLoader
@@ -10,7 +7,6 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores.faiss import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import State, StatesGroup
 from langchain_core.messages import HumanMessage, AIMessage
@@ -24,11 +20,9 @@ from openai import OpenAI
 os.environ["OPENAI_API_KEY"] = config.openai_key_personal.get_secret_value()
 router = Router()
 tokenAI=config.openai_key_personal.get_secret_value()
-tokenPC=config.pinecone_key.get_secret_value()
 client = OpenAI(
   api_key=tokenAI
 )
-pc = Pinecone(api_key=tokenPC)
 
 def get_docs(input_link):
     loader = WebBaseLoader(input_link)
@@ -556,14 +550,20 @@ async def documentation_new(message: types.Message, state: FSMContext):
     await message.answer(
         text="Ожидайте"
         )
-    await state.update_data(documentation=message.text)
-    docs = get_docs(message.text)
-    vectorStore = create_vector_store(docs)
-    await state.update_data(vector=vectorStore)
-    await state.set_state(Task_descr.documentation)
-    await message.answer(
-        text="Документация по ссылке загружена. \n \nВведите вопрос, на который хотите получить ответ:"
+    try:
+        docs = get_docs(message.text)
+    except:
+        await message.answer(
+        text="Ошибка в адресе. Попробуйте ввести другой адрес:"
         )
+    else:
+        await state.update_data(documentation=message.text)
+        vectorStore = create_vector_store(docs)
+        await state.update_data(vector=vectorStore)
+        await state.set_state(Task_descr.documentation)
+        await message.answer(
+            text="Документация по ссылке загружена. \n \nВведите вопрос, на который хотите получить ответ:"
+            )
     
 @router.message(Task_descr.documentation)
 async def documentation_new(message: types.Message, state: FSMContext):
@@ -571,7 +571,7 @@ async def documentation_new(message: types.Message, state: FSMContext):
     print(res)
     await message.answer(str(res))
     await message.answer(
-        text="Введите другой вопрос или воспользуйтесь меню, чтобы выбрать другую задачу."
+        text="Введите следующий вопрос или воспользуйтесь меню, чтобы выбрать другую задачу."
         )
     
 @router.message()
