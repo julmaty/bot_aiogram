@@ -11,7 +11,7 @@ COPY ./requirements.txt ./
 
 # Устанавливаем зависимости и gunicorn
 RUN pip install pip==24.0
-pip index versions faiss-cpu
+RUN pip index versions faiss-cpu
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 # Копируем файлы и билд
