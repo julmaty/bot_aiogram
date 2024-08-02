@@ -14,7 +14,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 from aiogram.filters.state import State, StatesGroup
-from handlers.openai import name_ideas_Call, code_Call, codeFront_Call, analisis_Call, presentation_Call, tasks_utils, logo_Call
+from handlers.openai import name_ideas_Call, code_Call, codeFront_Call, codePy_Call, analisis_Call, presentation_Call, tasks_utils, logo_Call, documentation_get
 
 router = Router()
 
@@ -32,7 +32,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
         types.KeyboardButton(text="Аналитика"),
         types.KeyboardButton(text="Дизайн")
     )
-
+    builder.row(types.KeyboardButton(
+        text="Документация")
+    )
     builder.row(types.KeyboardButton(
         text="Задание на хакатон")
     )
@@ -41,6 +43,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 @router.message(F.text.lower() == "задание на хакатон")
 async def zadaniye(message: types.Message, state: FSMContext):
     await state.set_state(None)
+    await state.update_data(last_call=None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
         res = f"Текущее описание: \n{data['zadaniye_descr']} \n \nВы хотите указать другое задание?"
@@ -62,18 +65,51 @@ class Task_descr(StatesGroup):
     opisaniye = State()
     code_history = State()
     codeFront_history = State()
+    codePy_history = State()
     ideas = State()
     tasks = State()
+    documentation = State()
+    documentation_new = State()
 
 @router.callback_query(F.data == "yes_descr")
-async def enter_descr(callback: types.CallbackQuery, state: FSMContext):   
+async def enter_descr(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)   
     await callback.message.answer("Введите описание:")
     await state.set_state(Task_descr.opisaniye)
     await callback.answer()
 
+@router.message(F.text.lower() == "документация")
+async def zadaniye(message: types.Message, state: FSMContext):
+    await state.set_state(None)
+    await state.update_data(last_call=None)
+    data = await state.get_data()
+    if (('documentation' in data) and (data['documentation'] != None)):
+        res = f"В систему загружена документация по ссылке: {data['documentation']}.\n \nВведите вопрос по ней или нажмити кнопку, чтобы загрузить другую документацию."
+        builder = InlineKeyboardBuilder()
+        builder.add(types.InlineKeyboardButton(
+            text="Загрузить другую",
+            callback_data="new_doc")
+        )
+        await state.set_state(Task_descr.documentation)
+        await message.answer(
+            res,
+            reply_markup=builder.as_markup()
+        )
+    else:
+        await message.answer("В системе отсутствует документация. \n \nВведите ссылку на документацию:")
+        await state.set_state(Task_descr.documentation_new)
+
+@router.callback_query(F.data == "new_doc")
+async def new_doc(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)   
+    await callback.message.answer("Введите ссылку на новую документацию:")
+    await state.set_state(Task_descr.documentation_new)
+    await callback.answer()     
+
 @router.message(F.text.lower() == "идеи")
 async def ideasChoice(message: types.Message, state: FSMContext):
     await state.set_state(None)
+    await state.update_data(last_call=None)
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="Идеи проекта",
@@ -91,6 +127,7 @@ async def ideasChoice(message: types.Message, state: FSMContext):
 @router.message(F.text.lower() == "код")
 async def codeChoice(message: types.Message, state: FSMContext):
     await state.set_state(None)
+    await state.update_data(last_call=None)
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="C#",
@@ -100,6 +137,10 @@ async def codeChoice(message: types.Message, state: FSMContext):
         text="Vue.js",
         callback_data="js")
     )
+    builder.add(types.InlineKeyboardButton(
+        text="Fast API",
+        callback_data="python")
+    )
     await message.answer(
         "Какую технологию использовать?",
         reply_markup=builder.as_markup()
@@ -108,6 +149,7 @@ async def codeChoice(message: types.Message, state: FSMContext):
 @router.message(F.text.lower() == "аналитика")
 async def codeChoice(message: types.Message, state: FSMContext):
     await state.set_state(None)
+    await state.update_data(last_call=None)
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(
         text="Написать user-cases",
@@ -128,6 +170,7 @@ async def codeChoice(message: types.Message, state: FSMContext):
 
 @router.message(F.text.lower() == "дизайн")
 async def design(message: types.Message, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(
@@ -142,6 +185,7 @@ async def design(message: types.Message, state: FSMContext):
 @router.message(Command("help"))
 async def process_help_command(message: types.Message, state: FSMContext):
     await state.set_state(None)
+    await state.update_data(last_call=None)
     await message.answer("Это бот, помогающий команде на хакатоне. Выбери команду из меню.")
 
 @router.message(Task_descr.opisaniye)
@@ -151,7 +195,7 @@ async def descr_chosen(message: types.Message, state: FSMContext):
     await state.set_state(None)
     if (('last_call' in data) and (data["last_call"] != None)):
         await message.answer(
-        text="Описание сохранено. Запрос отправлен в модель"
+        text="Описание сохранено. Запрос отправлен в модель. Ожидайте."
         )
         match data["last_call"]:
             case "name_ideas":
@@ -160,9 +204,15 @@ async def descr_chosen(message: types.Message, state: FSMContext):
             case "code":
                 res = await code_Call(state)
                 await message.answer(f"{res}", parse_mode=None)
+                await message.answer("Если хотите задать дополнительные вопросы по коду, введите их")
             case "codeFront":
                 res = await codeFront_Call(state)
                 await message.answer(f"{res}", parse_mode=None)
+                await message.answer("Если хотите задать дополнительные вопросы по коду, введите их")
+            case "codePy":
+                res = await codePy_Call(state)
+                await message.answer(f"{res}", parse_mode=None)
+                await message.answer("Если хотите задать дополнительные вопросы по коду, введите их")
             case "analisis":
                 res = await analisis_Call(state)
                 await message.answer(res)

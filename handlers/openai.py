@@ -15,7 +15,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters.state import State, StatesGroup
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import MessagesPlaceholder
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from config_reader import config
 import os
 
@@ -29,25 +29,6 @@ client = OpenAI(
   api_key=tokenAI
 )
 pc = Pinecone(api_key=tokenPC)
-llm = ChatOpenAI(
-    model="gpt-3.5-turbo",
-    temperature=0.7,
-)
-# Prompt Template
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "Generate a list of 10 synonyms for the following word. Return the results as a comma seperated list."),
-        ("human", "{input}")
-    ]
-)
-
-chain1 = prompt | llm
-
-@router.message(Command("llm"))
-async def langchainllm(message: types.Message, command: CommandObject):
-    response = chain1.invoke({"input": command.args})
-    await message.answer(response.content)
-
 
 def get_docs():
     loader = WebBaseLoader('https://python.langchain.com/docs/expression_language/')
@@ -91,6 +72,8 @@ def create_chain(vectorStore):
 
     return retrieval_chain
 
+async def documentation_get():
+    return 0
 #docs = get_docs()
 #vectorStore = create_vector_store(docs)
 #chain2 = create_chain(vectorStore)
@@ -104,11 +87,15 @@ class Task_descr(StatesGroup):
     opisaniye = State()
     code_history = State()
     codeFront_history = State()
+    codePy_history = State()
     ideas = State()
     tasks = State()
+    documentation = State()
+    documentation_new = State()
 
 @router.callback_query(F.data == "ideas")
 async def ideas(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(Task_descr.ideas)
     await callback.message.answer("Укажите сферу, в которой необходимо создать приложение:")
     await callback.answer()
@@ -129,6 +116,7 @@ async def name_ideas_Call(state: FSMContext):
 
 @router.callback_query(F.data == "name_ideas")
 async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
@@ -179,20 +167,35 @@ async def code_Call_history(state: FSMContext, user_input):
         "input": user_input,
         "chat_history": data["chat_code_history"]
     })
+    await state.set_state(Task_descr.code_history)
     data["chat_code_history"].append(HumanMessage(content=user_input))
     data["chat_code_history"].append(AIMessage(content=response.content))
     return response.content
 
 @router.callback_query(F.data == "c#")
 async def code(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = await code_Call(state)
-        await callback.message.answer(f"{res}", parse_mode=None)
-        await callback.message.answer(
-        text="Если хотите задать дополнительные вопросы по коду, введите их"
-        )
+        if (('chat_code_history' in data) and data['chat_code_history'] != []):
+            res = await code_Call_history(state, "Выведи имеющийся код")
+            await callback.message.answer(f"{res}", parse_mode=None)
+            builder = InlineKeyboardBuilder()
+            builder.row(types.InlineKeyboardButton(
+                text="Начать новую генерацию",
+                callback_data="code_new")
+            )
+            await callback.message.answer(
+            "Чтобы продолжить беседу по имеющумуся коду, введите вопрос. \n \nЧтобы начать новую генерацию кода по текущему заданию, нажмите кнопку.",
+            reply_markup=builder.as_markup()
+            )
+        else:
+            res = await code_Call(state)
+            await callback.message.answer(f"{res}", parse_mode=None)
+            await callback.message.answer(
+            text="Если хотите задать дополнительные вопросы по коду, введите их"
+            )
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
         await state.set_state(Task_descr.opisaniye)
@@ -200,6 +203,23 @@ async def code(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer(res)
     await callback.answer()
 
+@router.callback_query(F.data == "code_new")
+async def code_new(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
+    await state.set_state(None)
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = await code_Call(state)
+        await callback.message.answer(f"{res}", parse_mode=None)
+        await callback.message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их. \n\nИли выбедите другую команду в меню."
+        )
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="code")
+        await callback.message.answer(res)
+    await callback.answer()
 
 async def codeFront_Call(state: FSMContext):
     await state.update_data(chat_codeFront_history = [])
@@ -238,23 +258,152 @@ async def codeFront_Call_history(state: FSMContext, user_input):
         "input": user_input,
         "chat_history": data["chat_codeFront_history"]
     })
+    await state.set_state(Task_descr.codeFront_history)
     data["chat_codeFront_history"].append(HumanMessage(content=user_input))
     data["chat_codeFront_history"].append(AIMessage(content=response.content))
     return response.content
 
 @router.callback_query(F.data == "js")
 async def codeFront(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = await codeFront_Call(state)
-        await callback.message.answer(f"{res}", parse_mode=None)
+        if (('chat_codeFront_history' in data) and data['chat_codeFront_history'] != []):
+            res = await codeFront_Call_history(state, "Выведи имеющийся код")
+            await callback.message.answer(f"{res}", parse_mode=None)
+            builder = InlineKeyboardBuilder()
+            builder.row(types.InlineKeyboardButton(
+                text="Начать новую генерацию",
+                callback_data="codeFront_new")
+            )
+            await callback.message.answer(
+            "Чтобы продолжить беседу по имеющумуся коду, введите вопрос. \n \nЧтобы начать новую генерацию кода по текущему заданию, нажмите кнопку.",
+            reply_markup=builder.as_markup()
+            )
+        else:
+            res = await codeFront_Call(state)
+            await callback.message.answer(f"{res}", parse_mode=None)
+            await callback.message.answer(
+            text="Если хотите задать дополнительные вопросы по коду, введите их"
+            )
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="codeFront")
         await callback.message.answer(res)
     await callback.answer()
+
+@router.callback_query(F.data == "codeFront_new")
+async def codeFront_new(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
+    await state.set_state(None)
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = await codeFront_Call(state)
+        await callback.message.answer(f"{res}", parse_mode=None)
+        await callback.message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их. \n\nИли выбедите другую команду в меню."
+        )
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="codeFront")
+        await callback.message.answer(res)
+    await callback.answer()
+
+
+async def codePy_Call(state: FSMContext):
+    await state.update_data(chat_codePy_history = [])
+    data = await state.get_data()
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo"
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Ты разработчик, пишущий на языке python c использованием Fast API"),
+            ("human", f"Напиши API сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код полностью")
+        ]
+    )
+    chain = prompt | llm
+    response = chain.invoke({"input": data['zadaniye_descr']})
+    data["chat_codePy_history"].append(HumanMessage(content=f"Напиши API сервиса. Описание проекта: {data['zadaniye_descr']}. Предоставь код полностью"))
+    data["chat_codePy_history"].append(AIMessage(content=response.content))
+    await state.update_data(last_call=None)
+    await state.set_state(Task_descr.codePy_history)
+    return response.content
+
+async def codePy_Call_history(state: FSMContext, user_input):
+    data = await state.get_data()
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo"
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Ты разработчик, пишущий на языке python c использованием Fast API"),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}")
+        ]
+    )
+    chain = prompt | llm
+    response = chain.invoke({
+        "input": user_input,
+        "chat_history": data["chat_codePy_history"]
+    })
+    await state.set_state(Task_descr.codePy_history)
+    data["chat_codePy_history"].append(HumanMessage(content=user_input))
+    data["chat_codePy_history"].append(AIMessage(content=response.content))
+    return response.content
+
+@router.callback_query(F.data == "python")
+async def codeFront(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
+    await state.set_state(None)
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        if (('chat_codePy_history' in data) and data['chat_codePy_history'] != []):
+            res = await codePy_Call_history(state, "Выведи имеющийся код")
+            await callback.message.answer(f"{res}", parse_mode=None)
+            builder = InlineKeyboardBuilder()
+            builder.row(types.InlineKeyboardButton(
+                text="Начать новую генерацию",
+                callback_data="codePy_new")
+            )
+            await callback.message.answer(
+            "Чтобы продолжить беседу по имеющумуся коду, введите вопрос. \n \nЧтобы начать новую генерацию кода по текущему заданию, нажмите кнопку.",
+            reply_markup=builder.as_markup()
+            )
+        else:
+            res = await codePy_Call(state)
+            await callback.message.answer(f"{res}", parse_mode=None)
+            await callback.message.answer(
+            text="Если хотите задать дополнительные вопросы по коду, введите их"
+            )
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="codePy")
+        await callback.message.answer(res)
+    await callback.answer()
+
+@router.callback_query(F.data == "codePy_new")
+async def codePy_new(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
+    await state.set_state(None)
+    data = await state.get_data()
+    if ('zadaniye_descr' in data):
+        res = await codePy_Call(state)
+        await callback.message.answer(f"{res}", parse_mode=None)
+        await callback.message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их. \n\nИли выбедите другую команду в меню."
+        )
+    else:
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        await state.set_state(Task_descr.opisaniye)
+        await state.update_data(last_call="codePy")
+        await callback.message.answer(res)
+    await callback.answer()
+
 
 async def analisis_Call(state: FSMContext):
     data = await state.get_data()
@@ -270,6 +419,7 @@ async def analisis_Call(state: FSMContext):
 
 @router.callback_query(F.data == "analisis")
 async def analisis(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
@@ -296,6 +446,7 @@ async def presentation_Call(state: FSMContext):
 
 @router.callback_query(F.data == "presentation")
 async def presentation(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
@@ -325,6 +476,7 @@ async def tasks_utils(state: FSMContext):
 
 @router.callback_query(F.data == "tasks")
 async def tasks(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
@@ -351,10 +503,11 @@ async def logo_Call(state: FSMContext):
 
 @router.callback_query(F.data == "logo")
 async def logo(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(last_call=None)
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        image_url = logo_Call(state)
+        image_url = await logo_Call(state)
         await callback.message.reply_photo(image_url)
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
@@ -389,7 +542,7 @@ async def code_repeat(message: types.Message, state: FSMContext):
     res = await code_Call_history(state, message.text)
     await message.answer(f"{res}", parse_mode=None)
     await message.answer(
-        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        text="Если хотите задать дополнительные вопросы по коду, введите их. \n \nИли выберите другую задачу в меню."
         )
     
 @router.message(Task_descr.codeFront_history)
@@ -397,7 +550,22 @@ async def codeFront_repeat(message: types.Message, state: FSMContext):
     res = await codeFront_Call_history(state, message.text)
     await message.answer(f"{res}", parse_mode=None)
     await message.answer(
-        text="Если хотите задать дополнительные вопросы по коду, введите их"
+        text="Если хотите задать дополнительные вопросы по коду, введите их. \n \nИли выберите другую задачу в меню."
+        )
+    
+@router.message(Task_descr.codePy_history)
+async def codePy_repeat(message: types.Message, state: FSMContext):
+    res = await codePy_Call_history(state, message.text)
+    await message.answer(f"{res}", parse_mode=None)
+    await message.answer(
+        text="Если хотите задать дополнительные вопросы по коду, введите их. \n \nИли выберите другую задачу в меню."
+        )
+    
+@router.message(Task_descr.documentation_new)
+async def documentation_new(message: types.Message, state: FSMContext):
+    await state.update_data(documentation=message.text)
+    await message.answer(
+        text="Документация по ссылке загружена. \n \nВведите вопрос, на который хотите получить ответ:"
         )
     
 @router.message()
@@ -412,7 +580,9 @@ async def def_message(message: types.Message):
         types.KeyboardButton(text="Аналитика"),
         types.KeyboardButton(text="Дизайн")
     )
-
+    builder.row(types.KeyboardButton(
+        text="Документация")
+    )
     builder.row(types.KeyboardButton(
         text="Задание на хакатон")
     )
