@@ -30,12 +30,12 @@ client = OpenAI(
 )
 pc = Pinecone(api_key=tokenPC)
 
-def get_docs():
-    loader = WebBaseLoader('https://python.langchain.com/docs/expression_language/')
+def get_docs(input_link):
+    loader = WebBaseLoader(input_link)
     docs = loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=200,
+        chunk_size=500,
         chunk_overlap=20
     )
 
@@ -53,35 +53,18 @@ def create_chain(vectorStore):
         temperature=0.4,
         model="gpt-3.5-turbo"
     )
-
     prompt2 = ChatPromptTemplate.from_template("""
-    Answer the user's question.
-    Context: {context}
-    Question: {input}
+    Ответь на вопрос исходя из контекста.
+    Контекст: {context}
+    Вопрос: {input}
     """)
-
-    # chain = prompt | model
     document_chain = create_stuff_documents_chain(
         llm=model,
         prompt=prompt2
     )
-
     retriever = vectorStore.as_retriever()
-
     retrieval_chain = create_retrieval_chain(retriever, document_chain)
-
     return retrieval_chain
-
-async def documentation_get():
-    return 0
-#docs = get_docs()
-#vectorStore = create_vector_store(docs)
-#chain2 = create_chain(vectorStore)
-
-#@router.message(Command("llm2"))
-#async def langchainllm(message: types.Message):
-    #response = chain2.invoke({"input": "What is LCEL?"})
-    #await message.answer(response["answer"])
 
 class Task_descr(StatesGroup):
     opisaniye = State()
@@ -92,6 +75,13 @@ class Task_descr(StatesGroup):
     tasks = State()
     documentation = State()
     documentation_new = State()
+
+async def documentation_get(user_input, state: FSMContext):
+    data = await state.get_data()
+    chain = create_chain(data['vector'])
+    response = chain.invoke({"input": f"{user_input}"})
+    return response["answer"]
+
 
 @router.callback_query(F.data == "ideas")
 async def ideas(callback: types.CallbackQuery, state: FSMContext):
@@ -124,7 +114,7 @@ async def name_ideas(callback: types.CallbackQuery, state: FSMContext):
         await state.update_data(last_call=None)
         await callback.message.answer(res)
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="name_ideas")
         await callback.message.answer(res)
@@ -197,7 +187,7 @@ async def code(callback: types.CallbackQuery, state: FSMContext):
             text="Если хотите задать дополнительные вопросы по коду, введите их"
             )
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="code")
         await callback.message.answer(res)
@@ -215,7 +205,7 @@ async def code_new(callback: types.CallbackQuery, state: FSMContext):
         text="Если хотите задать дополнительные вопросы по коду, введите их. \n\nИли выбедите другую команду в меню."
         )
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="code")
         await callback.message.answer(res)
@@ -288,7 +278,7 @@ async def codeFront(callback: types.CallbackQuery, state: FSMContext):
             text="Если хотите задать дополнительные вопросы по коду, введите их"
             )
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="codeFront")
         await callback.message.answer(res)
@@ -306,7 +296,7 @@ async def codeFront_new(callback: types.CallbackQuery, state: FSMContext):
         text="Если хотите задать дополнительные вопросы по коду, введите их. \n\nИли выбедите другую команду в меню."
         )
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="codeFront")
         await callback.message.answer(res)
@@ -380,7 +370,7 @@ async def codeFront(callback: types.CallbackQuery, state: FSMContext):
             text="Если хотите задать дополнительные вопросы по коду, введите их"
             )
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="codePy")
         await callback.message.answer(res)
@@ -398,7 +388,7 @@ async def codePy_new(callback: types.CallbackQuery, state: FSMContext):
         text="Если хотите задать дополнительные вопросы по коду, введите их. \n\nИли выбедите другую команду в меню."
         )
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="codePy")
         await callback.message.answer(res)
@@ -425,7 +415,7 @@ async def analisis(callback: types.CallbackQuery, state: FSMContext):
     if ('zadaniye_descr' in data):
         res = await analisis_Call(state)
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="analisis")
     await callback.message.answer(res)
@@ -452,7 +442,7 @@ async def presentation(callback: types.CallbackQuery, state: FSMContext):
     if ('zadaniye_descr' in data):
         res = await presentation_Call(state)
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="presentation")
     await callback.message.answer(res)
@@ -483,7 +473,7 @@ async def tasks(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(Task_descr.tasks)
         res = "Укажите, какой состав имеет ваша команда:"
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="tasks")
     await callback.message.answer(res)
@@ -510,7 +500,7 @@ async def logo(callback: types.CallbackQuery, state: FSMContext):
         image_url = await logo_Call(state)
         await callback.message.reply_photo(image_url)
     else:
-        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
+        res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание:"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="logo")
         await callback.message.answer(res)
@@ -563,9 +553,25 @@ async def codePy_repeat(message: types.Message, state: FSMContext):
     
 @router.message(Task_descr.documentation_new)
 async def documentation_new(message: types.Message, state: FSMContext):
+    await message.answer(
+        text="Ожидайте"
+        )
     await state.update_data(documentation=message.text)
+    docs = get_docs(message.text)
+    vectorStore = create_vector_store(docs)
+    await state.update_data(vector=vectorStore)
+    await state.set_state(Task_descr.documentation)
     await message.answer(
         text="Документация по ссылке загружена. \n \nВведите вопрос, на который хотите получить ответ:"
+        )
+    
+@router.message(Task_descr.documentation)
+async def documentation_new(message: types.Message, state: FSMContext):
+    res = await documentation_get(message.text, state)
+    print(res)
+    await message.answer(str(res))
+    await message.answer(
+        text="Введите другой вопрос или воспользуйтесь меню, чтобы выбрать другую задачу."
         )
     
 @router.message()
