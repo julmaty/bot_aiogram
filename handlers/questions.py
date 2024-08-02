@@ -14,7 +14,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 from aiogram.filters.state import State, StatesGroup
-from handlers.openai import name_ideas_Call, code_Call, codeFront_Call, analisis_Call, presentation_Call, tasks_Call, logo_Call
+from handlers.openai import name_ideas_Call, code_Call, codeFront_Call, analisis_Call, presentation_Call, tasks_utils, logo_Call
 
 router = Router()
 
@@ -63,6 +63,7 @@ class Task_descr(StatesGroup):
     code_history = State()
     codeFront_history = State()
     ideas = State()
+    tasks = State()
 
 @router.callback_query(F.data == "yes_descr")
 async def enter_descr(callback: types.CallbackQuery, state: FSMContext):   
@@ -169,7 +170,7 @@ async def descr_chosen(message: types.Message, state: FSMContext):
                 res = await presentation_Call(state)
                 await message.answer(res)
             case "tasks":
-                res = await tasks_Call(state)
+                res = await tasks_utils(state)
                 await message.answer(res)
             case "logo":
                 image_url = await logo_Call(state)

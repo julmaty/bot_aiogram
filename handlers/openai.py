@@ -105,6 +105,7 @@ class Task_descr(StatesGroup):
     code_history = State()
     codeFront_history = State()
     ideas = State()
+    tasks = State()
 
 @router.callback_query(F.data == "ideas")
 async def ideas(callback: types.CallbackQuery, state: FSMContext):
@@ -187,7 +188,7 @@ async def code(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = code_Call(state)
+        res = await code_Call(state)
         await callback.message.answer(f"{res}", parse_mode=None)
         await callback.message.answer(
         text="Если хотите задать дополнительные вопросы по коду, введите их"
@@ -246,7 +247,7 @@ async def codeFront(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = codeFront_Call(state)
+        res = await codeFront_Call(state)
         await callback.message.answer(f"{res}", parse_mode=None)
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
@@ -272,7 +273,7 @@ async def analisis(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = analisis_Call(state)
+        res = await analisis_Call(state)
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
         await state.set_state(Task_descr.opisaniye)
@@ -298,7 +299,7 @@ async def presentation(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = presentation_Call(state)
+        res = await presentation_Call(state)
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
         await state.set_state(Task_descr.opisaniye)
@@ -306,29 +307,33 @@ async def presentation(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(res)
     await callback.answer()
 
-async def tasks_Call(state: FSMContext):
+async def tasks_Call(state: FSMContext, user_input):
     data = await state.get_data()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Ты аналитик в команде программистов на хакатоне"},
-            {"role": "user", "content": f"Напиши список задач, которые команде необходимо реализовать для подготовки проекта. Распредели эти задачи между 4 учасниками команды: бэкенд-разработчик, фронтенд-разработчик, дизайнер, аналитик. Описание проекта: {data['zadaniye_descr']}"},
+            {"role": "user", "content": f"Напиши список задач, которые команде необходимо реализовать для подготовки проекта. Распредели эти задачи между учасниками команды. Состав команды: {user_input}. Описание проекта: {data['zadaniye_descr']}"},
         ]
     )
     await state.update_data(last_call=None)
     return response.choices[0].message.content
+
+async def tasks_utils(state: FSMContext):
+    await state.set_state(Task_descr.tasks)
+    return "Укажите, какой состав имеет ваша команда:"
 
 @router.callback_query(F.data == "tasks")
 async def tasks(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(None)
     data = await state.get_data()
     if ('zadaniye_descr' in data):
-        res = tasks_Call(state)
+        await state.set_state(Task_descr.tasks)
+        res = "Укажите, какой состав имеет ваша команда:"
     else:
         res = f"В настоящий момент задание на хакатон не указано. \n \nУкажите задание"
         await state.set_state(Task_descr.opisaniye)
         await state.update_data(last_call="tasks")
-
     await callback.message.answer(res)
     await callback.answer()
 
@@ -371,6 +376,12 @@ async def ideas_ans(message: types.Message, state: FSMContext):
     )
     res = response.choices[0].message.content
 
+    await message.answer(res)
+
+@router.message(Task_descr.tasks)
+async def ideas_ans(message: types.Message, state: FSMContext):
+    await state.set_state(None)
+    res = await tasks_Call(state, message.text)
     await message.answer(res)
 
 @router.message(Task_descr.code_history)
